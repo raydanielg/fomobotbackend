@@ -40,7 +40,13 @@ class WhatsAppSessionManager:
     @staticmethod
     @transaction.atomic
     def ensure_session(bot: Bot) -> WhatsAppSession:
-        """Return the bot's session, creating it if needed (one per bot)."""
+        """Return the bot's session, creating it if needed (one per bot).
+
+        Re-provisions sessions created under a different provider — the
+        stored provider is sticky, so a session made under `mock` would
+        keep emitting simulated QRs even after the backend switched to
+        `external`.
+        """
         session, _ = WhatsAppSession.objects.get_or_create(
             bot=bot,
             defaults={
@@ -48,6 +54,15 @@ class WhatsAppSessionManager:
                 "provider": settings.WHATSAPP_PROVIDER,
             },
         )
+        if session.provider != settings.WHATSAPP_PROVIDER:
+            session.provider = settings.WHATSAPP_PROVIDER
+            session.provider_session_id = ""
+            session.qr_code = ""
+            session.qr_expires_at = None
+            session.qr_generated_at = None
+            session.state = WhatsAppSession.State.CREATED
+            session.save()
+            _sync_bot(bot, session)
         return session
 
     @staticmethod
