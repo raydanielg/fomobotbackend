@@ -115,4 +115,5 @@ class BotViewSet(TenantViewSet):
             "state": session.state,
             "qr": session.qr_code,
             "expires_at": session.qr_expires_at,
+            "provider": settings.WHATSAPP_PROVIDER,
         }

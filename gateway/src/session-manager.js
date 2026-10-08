@@ -15,7 +15,9 @@ import { emitEvent } from "./events.js";
 const log = pino({ name: "sessions" });
 
 const AUTH_DIR = process.env.AUTH_DIR || "/data/sessions";
-const QR_TTL_SECONDS = 60;
+// Baileys re-emits the pairing QR roughly every 20s; report a matching TTL
+// so Django's cache never serves a code WhatsApp has already invalidated.
+const QR_TTL_SECONDS = 20;
 
 // FomoBot session states (must match apps.whatsapp.models.WhatsAppSession.State)
 const State = {
