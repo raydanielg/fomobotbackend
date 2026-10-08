@@ -71,12 +71,20 @@ class WhatsAppSessionManager:
 
         try:
             provider.start_session(session)
-            qr = provider.get_qr(session)
         except ProviderError as exc:
             session.state = WhatsAppSession.State.ERROR
             session.last_error = str(exc)
             session.save(update_fields=["state", "last_error", "updated_at"])
             _sync_bot(bot, session)
+            raise exceptions.WhatsAppError(detail=str(exc)) from exc
+
+        try:
+            qr = provider.get_qr(session)
+        except ProviderError as exc:
+            # The provider hasn't emitted a QR yet — stay CONNECTING and let
+            # the client retry instead of bricking the session into ERROR.
+            session.last_error = str(exc)
+            session.save(update_fields=["last_error", "updated_at"])
             raise exceptions.WhatsAppError(detail=str(exc)) from exc
 
         now = timezone.now()

@@ -56,9 +56,16 @@ app.get("/sessions/:id", (req, res) => {
   });
 });
 
-app.get("/sessions/:id/qr", (req, res) => {
+app.get("/sessions/:id/qr", async (req, res) => {
   const sess = getSession(req.params.id);
   if (!sess) return res.status(404).json({ error: "session not found" });
+  // Long-poll: WhatsApp emits the pairing QR a few seconds after the socket
+  // dials. Wait up to 8s so callers get a usable code instead of a 409.
+  const deadline = Date.now() + 8000;
+  while (!sess.qr && Date.now() < deadline) {
+    if (["connected", "disconnected", "logged_out", "error"].includes(sess.state)) break;
+    await new Promise((r) => setTimeout(r, 250));
+  }
   if (!sess.qr) {
     return res.status(409).json({
       error: "no QR available",
