@@ -78,6 +78,12 @@ class PlanLimitReached(APIError):
     error_code = ErrorCodes.PLAN_LIMIT_REACHED
 
 
+class TooManyRequests(APIError):
+    status_code = status.HTTP_429_TOO_MANY_REQUESTS
+    default_detail = "Too many requests. Try again later."
+    error_code = ErrorCodes.RATE_LIMITED
+
+
 class BotNotConnected(APIError):
     status_code = status.HTTP_409_CONFLICT
     default_detail = "The bot is not connected to WhatsApp."

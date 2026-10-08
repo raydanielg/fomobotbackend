@@ -102,3 +102,19 @@ class PasswordResetConfirmSerializer(serializers.Serializer):
 class VerifyEmailSerializer(serializers.Serializer):
     uid = serializers.CharField()
     token = serializers.CharField()
+
+
+class OTPRequestSerializer(serializers.Serializer):
+    identifier = serializers.CharField(max_length=256)
+    purpose = serializers.ChoiceField(
+        choices=["register", "phone_verify", "login", "password_reset", "sensitive_action"]
+    )
+    channel = serializers.ChoiceField(choices=["email", "whatsapp", "sms"], default="email")
+
+
+class OTPVerifySerializer(serializers.Serializer):
+    identifier = serializers.CharField(max_length=256)
+    purpose = serializers.ChoiceField(
+        choices=["register", "phone_verify", "login", "password_reset", "sensitive_action"]
+    )
+    code = serializers.CharField(min_length=4, max_length=10)

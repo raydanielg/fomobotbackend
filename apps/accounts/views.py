@@ -4,9 +4,10 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.views import TokenRefreshView
 
 from apps.accounts import serializers as s
-from apps.accounts.models import LoginActivity
+from apps.accounts.models import LoginActivity, User
 from apps.accounts.services import AuthService
-from apps.common import responses
+from apps.common import exceptions, responses
+from apps.common.middleware import _client_ip
 from apps.common.throttles import AuthRateThrottle, PasswordResetThrottle
 
 
@@ -163,3 +164,95 @@ class DeactivateAccountView(generics.GenericAPIView):
         request.user.is_active = False
         request.user.save(update_fields=["is_active", "updated_at"])
         return responses.success({"detail": "Account deactivated."}, request=request)
+
+
+class OTPRequestView(generics.GenericAPIView):
+    """Request a one-time code. The raw code is delivered over the chosen
+    channel and never returned in the response."""
+
+    serializer_class = s.OTPRequestSerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
+
+    def post(self, request):
+        serializer = s.OTPRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        from apps.admin_control.services import create_otp, otp_rate_limited, security_event
+
+        if otp_rate_limited(d["identifier"]):
+            security_event("otp_rate_limited", detail=d["identifier"], ip=_client_ip(request))
+            raise exceptions.TooManyRequests(
+                detail="Too many OTP requests. Try again later."
+            )
+
+        user = User.objects.filter(email__iexact=d["identifier"]).first() or (
+            request.user if request.user.is_authenticated else None
+        )
+        _otp, code = create_otp(
+            identifier=d["identifier"],
+            purpose=d["purpose"],
+            channel=d["channel"],
+            user=user,
+            ip=_client_ip(request),
+        )
+        security_event(
+            "otp_requested", user=user, detail=d["purpose"], ip=_client_ip(request)
+        )
+
+        if d["channel"] == "email":
+            from apps.notifications.services import NotificationService
+
+            NotificationService.send_email(
+                to=d["identifier"],
+                subject="Your FomoBot verification code",
+                body=f"Your verification code is {code}. It expires in 10 minutes.",
+            )
+
+        return responses.success(
+            {
+                "detail": f"Verification code sent via {d['channel']}.",
+                "expires_in": 600,
+            },
+            status=status.HTTP_201_CREATED,
+            request=request,
+        )
+
+
+class OTPVerifyView(generics.GenericAPIView):
+    serializer_class = s.OTPVerifySerializer
+    permission_classes = [AllowAny]
+    throttle_classes = [AuthRateThrottle]
+
+    def post(self, request):
+        serializer = s.OTPVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        d = serializer.validated_data
+
+        from apps.admin_control.models import OTP
+        from apps.admin_control.services import security_event
+
+        otp = (
+            OTP.objects.filter(
+                identifier=d["identifier"],
+                purpose=d["purpose"],
+                status=OTP.Status.PENDING,
+            )
+            .order_by("-created_at")
+            .first()
+        )
+        if otp is None or not otp.verify(d["code"]):
+            security_event(
+                "otp_failed", detail=d["identifier"], ip=_client_ip(request)
+            )
+            raise exceptions.APIError(detail="Invalid or expired code.")
+
+        # Successful verification marks the user's email verified when the
+        # identifier is their email and the purpose supports it.
+        user = otp.user or User.objects.filter(email__iexact=d["identifier"]).first()
+        if user and d["identifier"].lower() == user.email.lower() and not user.is_email_verified:
+            user.is_email_verified = True
+            user.save(update_fields=["is_email_verified", "updated_at"])
+
+        return responses.success({"detail": "Code verified."}, request=request)

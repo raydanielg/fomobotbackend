@@ -18,4 +18,6 @@ urlpatterns = [
         name="auth-password-reset-confirm",
     ),
     path("verify-email/", views.VerifyEmailView.as_view(), name="auth-verify-email"),
+    path("otp/request/", views.OTPRequestView.as_view(), name="auth-otp-request"),
+    path("otp/verify/", views.OTPVerifyView.as_view(), name="auth-otp-verify"),
 ]

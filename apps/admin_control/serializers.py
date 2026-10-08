@@ -2,12 +2,12 @@ from rest_framework import serializers
 
 from apps.accounts.models import LoginActivity, User
 from apps.admin_control.models import (
+    OTP,
     AdminRole,
     AdminUser,
     Announcement,
     FeatureFlag,
     InternalNote,
-    OTP,
     SecurityEvent,
 )
 from apps.audit.models import AuditLog

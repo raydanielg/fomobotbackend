@@ -53,6 +53,27 @@ class AuthService:
                 owner=user, name=organization_name
             )
         AuthService.send_verification_email(user)
+
+        if organization:
+            from apps.logs.services import emit
+            from apps.notifications.services import NotificationService
+
+            NotificationService.notify(
+                organization=organization,
+                user=user,
+                type="welcome",
+                title="Welcome to FomoBot",
+                body=(
+                    f"Hello {first_name or email}, welcome to FomoBot. "
+                    "Your account has been created successfully. "
+                    "Connect your WhatsApp to start building bots and automations."
+                ),
+            )
+            emit(
+                "user.registered",
+                organization=organization,
+                payload={"user_id": str(user.id), "email": user.email},
+            )
         return user, organization
 
     @staticmethod

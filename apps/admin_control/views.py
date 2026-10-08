@@ -1,7 +1,7 @@
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
-from django.db.models import Count, Q
+from django.db.models import Count
 from django.utils import timezone
 from rest_framework import generics, status, viewsets
 from rest_framework.decorators import action
@@ -14,12 +14,12 @@ from apps.admin_control import permissions as perms
 from apps.admin_control import serializers as s
 from apps.admin_control import services
 from apps.admin_control.models import (
+    OTP,
     AdminRole,
     AdminUser,
     Announcement,
     FeatureFlag,
     InternalNote,
-    OTP,
     SecurityEvent,
 )
 from apps.audit.models import AuditLog
@@ -31,8 +31,6 @@ from apps.common.responses import success
 from apps.contacts.models import Contact
 from apps.conversations.models import Conversation
 from apps.messaging.models import Message
-from apps.messaging.serializers import SendMessageSerializer
-from apps.messaging.services import MessageService
 from apps.notifications.models import Notification
 from apps.organizations.models import Organization
 from apps.webhooks.models import WebhookDelivery
@@ -556,7 +554,7 @@ class AdminRoleViewSet(viewsets.ModelViewSet):
                            "destroy": "roles.manage"}
 
     def get_queryset(self):
-        return AdminRole.objects.annotate(admin_count=Count("admins"))
+        return AdminRole.objects.annotate(admin_count=Count("admins")).order_by("name")
 
     def perform_create(self, serializer):
         obj = serializer.save()
@@ -574,7 +572,7 @@ class AdminUserViewSet2(viewsets.ModelViewSet):
                            "destroy": "roles.manage"}
 
     def get_queryset(self):
-        return AdminUser.objects.select_related("user").prefetch_related("roles")
+        return AdminUser.objects.select_related("user").prefetch_related("roles").order_by("-created_at")
 
     def create(self, request, *args, **kwargs):
         user = generics.get_object_or_404(User, email=request.data.get("email"))
@@ -652,5 +650,5 @@ class QueueView(APIView):
                 ],
                 "online": bool(workers),
             }, request=request)
-        except Exception:
+        except Exception:  # noqa: BLE001 — celery inspect must never 500
             return success({"workers": [], "online": False}, request=request)

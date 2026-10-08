@@ -1,10 +1,10 @@
+import hashlib
 import secrets
 from datetime import timedelta
 
 from django.utils import timezone
-import hashlib
 
-from apps.admin_control.models import OTP, AdminRole, DEFAULT_ROLES, SecurityEvent
+from apps.admin_control.models import DEFAULT_ROLES, OTP, AdminRole, SecurityEvent
 from apps.audit.models import AuditLog
 
 
