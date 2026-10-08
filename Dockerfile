@@ -16,7 +16,9 @@ RUN pip install -r requirements/${REQUIREMENTS}
 
 COPY . .
 
-RUN useradd -m -u 10001 fomobot && chown -R fomobot /app
+RUN useradd -m -u 10001 fomobot \
+    && mkdir -p /app/staticfiles /app/media \
+    && chown -R fomobot /app
 USER fomobot
 
 EXPOSE 8000
