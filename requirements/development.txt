@@ -1,0 +1,6 @@
+-r base.txt
+pytest>=8.3,<10.0
+pytest-django>=4.9,<5.0
+pytest-cov>=6.0,<8.0
+ipython>=9.0,<10.0
+ruff>=0.9,<1.0

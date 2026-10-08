@@ -1,0 +1,14 @@
+[tool.ruff]
+line-length = 110
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "RUF", "SIM", "DTZ", "BLE"]
+ignore = [
+    "RUF012",  # mutable class attrs are the Django idiom (choices, roles…)
+    "E501",    # line length
+]
+
+[tool.ruff.lint.per-file-ignores]
+"config/settings/*.py" = ["F403", "F405", "E402"]
+"config/asgi.py" = ["E402"]
