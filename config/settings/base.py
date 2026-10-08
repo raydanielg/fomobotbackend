@@ -233,6 +233,15 @@ ENCRYPTION_KEY = env("ENCRYPTION_KEY", default="")  # Fernet key, required in pr
 
 CORS_ALLOWED_ORIGINS = env("CORS_ALLOWED_ORIGINS")
 CORS_ALLOW_CREDENTIALS = True
+from corsheaders.defaults import default_headers
+
+CORS_ALLOW_HEADERS = [
+    *default_headers,
+    "x-organization-id",
+    "x-api-key",
+    "idempotency-key",
+]
+CORS_EXPOSE_HEADERS = ["x-request-id"]
 
 # FomoBot platform settings
 FOMOBOT = {
