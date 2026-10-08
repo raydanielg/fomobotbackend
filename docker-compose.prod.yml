@@ -15,6 +15,8 @@ x-app-env: &app-env
     CELERY_BROKER_URL: redis://redis:6379/0
     CELERY_RESULT_BACKEND: redis://redis:6379/1
     DJANGO_SETTINGS_MODULE: config.settings.production
+    # Internal service URLs — always resolve to compose services, not localhost.
+    WHATSAPP_SERVICE_URL: http://gateway:4000
 
 services:
   web:
@@ -67,6 +69,30 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # Real WhatsApp gateway (Baileys multi-device bridge).
+  # Owns the WhatsApp sockets; talks to Django over HTTP + the ingress webhook.
+  gateway:
+    build:
+      context: ./gateway
+    image: fomobot-gateway
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      SERVICE_TOKEN: ${WHATSAPP_SERVICE_TOKEN:-}
+      CALLBACK_URL: http://web:8000
+      AUTH_DIR: /data/sessions
+    volumes:
+      - gateway_auth:/data/sessions
+    depends_on:
+      web:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+
   postgres:
     image: postgres:16-alpine
     environment:
@@ -112,3 +138,4 @@ volumes:
   redis_data:
   staticfiles:
   mediafiles:
+  gateway_auth:

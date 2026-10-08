@@ -1,0 +1,18 @@
+{
+  "name": "fomobot-gateway",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "WhatsApp gateway service for FomoBot (Baileys multi-device bridge)",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "6.7.24",
+    "express": "4.21.2",
+    "pino": "9.6.0"
+  }
+}

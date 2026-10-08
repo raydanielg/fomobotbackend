@@ -13,3 +13,5 @@ staticfiles/
 htmlcov/
 *.log
 .DS_Store
+node_modules/
+gateway/data/
