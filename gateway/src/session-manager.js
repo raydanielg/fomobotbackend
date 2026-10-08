@@ -62,7 +62,12 @@ export async function createSession(botId) {
     retries: 0,
   };
   sessions.set(id, sess);
-  await startSocket(sess);
+  // Don't await socket init — dialing WhatsApp takes seconds and callers
+  // poll /qr + /status anyway. Blocking here would hit HTTP timeouts.
+  startSocket(sess).catch((err) => {
+    sess.state = State.ERROR;
+    log.error({ session: id, err: String(err) }, "socket start failed");
+  });
   return sess;
 }
 
@@ -207,7 +212,10 @@ export async function restoreSession(sess) {
   }
   sess.intentional = false;
   sess.state = State.CONNECTING;
-  await startSocket(sess);
+  startSocket(sess).catch((err) => {
+    sess.state = State.ERROR;
+    log.error({ session: sess.id, err: String(err) }, "restore dial failed");
+  });
 }
 
 export async function sendMessage(sess, { to, type, text, media_url, caption }) {
