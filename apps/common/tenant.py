@@ -73,7 +73,13 @@ def _user_membership(request):
         return qs.filter(organization_id=org_id).first() or qs.filter(
             organization__slug=org_id
         ).first()
-    return qs.order_by("joined_at").first()
+    membership = qs.order_by("joined_at").first()
+    if membership is None:
+        # Accounts created before workspaces became mandatory get one lazily.
+        from apps.organizations.services import OrganizationService
+
+        membership = OrganizationService.ensure_personal_workspace(request.user)
+    return membership
 
 
 def require_organization(request):

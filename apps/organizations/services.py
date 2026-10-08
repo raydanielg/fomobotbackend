@@ -42,6 +42,21 @@ class OrganizationService:
 
     @staticmethod
     @transaction.atomic
+    def ensure_personal_workspace(user) -> OrganizationMembership | None:
+        """Return the user's first active membership, provisioning a personal
+        workspace if they have none (legacy/org-less signups)."""
+        qs = OrganizationMembership.objects.select_related("organization").filter(
+            user=user, status=OrganizationMembership.Status.ACTIVE
+        )
+        membership = qs.order_by("joined_at").first()
+        if membership is not None:
+            return membership
+        base = user.first_name or user.email.split("@")[0]
+        OrganizationService.create_organization(owner=user, name=f"{base}'s workspace")
+        return qs.order_by("joined_at").first()
+
+    @staticmethod
+    @transaction.atomic
     def update_organization(org: Organization, **fields) -> Organization:
         for k, v in fields.items():
             setattr(org, k, v)

@@ -45,13 +45,13 @@ class AuthService:
             first_name=first_name,
             last_name=last_name,
         )
-        organization = None
-        if organization_name:
-            from apps.organizations.services import OrganizationService
+        from apps.organizations.services import OrganizationService
 
-            organization = OrganizationService.create_organization(
-                owner=user, name=organization_name
-            )
+        if not organization_name:
+            organization_name = f"{first_name or email.split('@')[0]}'s workspace"
+        organization = OrganizationService.create_organization(
+            owner=user, name=organization_name
+        )
         AuthService.send_verification_email(user)
 
         if organization:
