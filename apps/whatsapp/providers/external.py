@@ -59,6 +59,14 @@ class ExternalHTTPProvider(WhatsAppProvider):
     def start_session(self, session) -> dict:
         if session.provider_session_id:
             data = self._call("GET", f"/sessions/{session.provider_session_id}")
+            # Logged-out gateway sessions have wiped credentials — ask the
+            # gateway to re-dial so a fresh pairing QR is emitted.
+            if data.get("state") == "logged_out":
+                data = self._call(
+                    "POST",
+                    "/sessions",
+                    json={"bot_id": session.bot_id, "webhook_secret": ""},
+                )
             return data
         data = self._call(
             "POST", "/sessions", json={"bot_id": session.bot_id, "webhook_secret": ""}

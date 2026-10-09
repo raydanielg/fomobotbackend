@@ -17,7 +17,7 @@ const log = pino({ name: "sessions" });
 const AUTH_DIR = process.env.AUTH_DIR || "/data/sessions";
 // Baileys re-emits the pairing QR roughly every 20s; report a matching TTL
 // so Django's cache never serves a code WhatsApp has already invalidated.
-const QR_TTL_SECONDS = 20;
+const QR_TTL_SECONDS = 30;
 
 // FomoBot session states (must match apps.whatsapp.models.WhatsAppSession.State)
 const State = {
@@ -48,7 +48,20 @@ export function getSession(id) {
 
 export async function createSession(botId) {
   const id = `sess_${botId}`;
-  if (sessions.has(id)) return sessions.get(id);
+  if (sessions.has(id)) {
+    const existing = sessions.get(id);
+    // Logged-out sessions have wiped credentials — re-dial so the caller
+    // gets a fresh pairing QR instead of a dead session.
+    if (existing.state === State.LOGGED_OUT) {
+      existing.intentional = false;
+      existing.state = State.CONNECTING;
+      startSocket(existing).catch((err) => {
+        existing.state = State.ERROR;
+        log.error({ session: id, err: String(err) }, "re-dial failed");
+      });
+    }
+    return existing;
+  }
   const sess = {
     id,
     botId,
