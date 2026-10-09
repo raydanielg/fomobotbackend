@@ -85,13 +85,20 @@ class WhatsAppSessionManager:
         session.save(update_fields=["state", "updated_at"])
 
         try:
-            provider.start_session(session)
+            start_result = provider.start_session(session)
         except ProviderError as exc:
             session.state = WhatsAppSession.State.ERROR
             session.last_error = str(exc)
             session.save(update_fields=["state", "last_error", "updated_at"])
             _sync_bot(bot, session)
             raise exceptions.WhatsAppError(detail=str(exc)) from exc
+
+        # The provider may already hold a live connection (e.g. paired via
+        # another channel) — converge instead of asking for a dead QR.
+        if isinstance(start_result, dict) and start_result.get("state") == "connected":
+            return WhatsAppSessionManager.confirm_authenticated(
+                bot, phone_number=start_result.get("phone_number", "")
+            )
 
         try:
             qr = provider.get_qr(session)
@@ -262,6 +269,16 @@ class WhatsAppSessionManager:
     @staticmethod
     def get_status(bot: Bot) -> dict:
         session = WhatsAppSessionManager.get_session(bot)
+        if session:
+            # Live-sync with the provider so the UI converges even if an
+            # ingress event was missed. Provider outages keep the stored state.
+            try:
+                provider = get_provider(session.provider)
+                live = provider.heartbeat(session)
+                WhatsAppSessionManager._apply_provider_status(bot, session, live)
+                session.refresh_from_db()
+            except Exception:  # noqa: BLE001 — provider outage keeps stored state
+                pass
         account = (session.metadata or {}).get("whatsapp_account", {}) if session else {}
         return {
             "bot_id": bot.id,
