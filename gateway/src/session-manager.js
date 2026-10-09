@@ -126,7 +126,21 @@ async function onConnectionUpdate(sess, update) {
     sess.retries = 0;
     sess.phoneNumber = jidToNumber(sess.sock?.user?.id || "");
     log.info({ session: sess.id, phone: sess.phoneNumber }, "session connected");
-    emitEvent(sess, "auth.authenticated", { phone_number: sess.phoneNumber });
+    // Best-effort account profile — privacy settings may hide the picture.
+    void (async () => {
+      let profilePic = "";
+      try {
+        profilePic =
+          (await sess.sock.profilePictureUrl(sess.sock.user.id, "image")) || "";
+      } catch {
+        /* unavailable */
+      }
+      emitEvent(sess, "auth.authenticated", {
+        phone_number: sess.phoneNumber,
+        display_name: sess.sock?.user?.name || "",
+        profile_pic_url: profilePic,
+      });
+    })();
   }
   if (connection === "close") {
     const statusCode = lastDisconnect?.error

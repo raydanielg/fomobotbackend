@@ -45,6 +45,8 @@ class BotStatusSerializer(serializers.Serializer):
     connection_status = serializers.CharField()
     session_state = serializers.CharField(allow_null=True)
     phone_number = serializers.CharField()
+    display_name = serializers.CharField(allow_blank=True, required=False)
+    profile_pic_url = serializers.CharField(allow_blank=True, required=False)
     last_connected_at = serializers.DateTimeField(allow_null=True)
     last_disconnected_at = serializers.DateTimeField(allow_null=True)
     last_heartbeat_at = serializers.DateTimeField(allow_null=True)

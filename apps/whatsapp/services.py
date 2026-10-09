@@ -136,7 +136,9 @@ class WhatsAppSessionManager:
 
     @staticmethod
     @transaction.atomic
-    def confirm_authenticated(bot: Bot, *, phone_number: str = "") -> WhatsAppSession:
+    def confirm_authenticated(
+        bot: Bot, *, phone_number: str = "", account: dict | None = None
+    ) -> WhatsAppSession:
         """Provider confirmed the pairing → session connected."""
         session = WhatsAppSessionManager.ensure_session(bot)
         now = timezone.now()
@@ -147,6 +149,13 @@ class WhatsAppSessionManager:
         session.last_heartbeat_at = now
         session.last_error = ""
         session.reconnect_attempts = 0
+        if account:
+            meta = dict(session.metadata or {})
+            meta["whatsapp_account"] = {
+                "display_name": account.get("display_name", ""),
+                "profile_pic_url": account.get("profile_pic_url", ""),
+            }
+            session.metadata = meta
         session.save()
         if phone_number:
             bot.phone_number = phone_number
@@ -253,11 +262,14 @@ class WhatsAppSessionManager:
     @staticmethod
     def get_status(bot: Bot) -> dict:
         session = WhatsAppSessionManager.get_session(bot)
+        account = (session.metadata or {}).get("whatsapp_account", {}) if session else {}
         return {
             "bot_id": bot.id,
             "connection_status": bot.connection_status,
             "session_state": session.state if session else None,
             "phone_number": bot.phone_number,
+            "display_name": account.get("display_name", ""),
+            "profile_pic_url": account.get("profile_pic_url", ""),
             "last_connected_at": bot.last_connected_at,
             "last_disconnected_at": bot.last_disconnected_at,
             "last_heartbeat_at": session.last_heartbeat_at if session else None,
@@ -300,7 +312,12 @@ def handle_provider_event(record):
     event_type = payload.get("type", "")
     if event_type == "auth.authenticated":
         WhatsAppSessionManager.confirm_authenticated(
-            bot, phone_number=data.get("phone_number", "")
+            bot,
+            phone_number=data.get("phone_number", ""),
+            account={
+                "display_name": data.get("display_name", ""),
+                "profile_pic_url": data.get("profile_pic_url", ""),
+            },
         )
     elif event_type == "session.disconnected":
         WhatsAppSessionManager.disconnect(bot)
